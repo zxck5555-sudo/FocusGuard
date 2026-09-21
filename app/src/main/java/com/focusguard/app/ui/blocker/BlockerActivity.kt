@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.sp
 import com.focusguard.app.data.FocusPreferences
 import com.focusguard.app.service.FocusTimerService
 import com.focusguard.app.ui.components.AppIconImage
+import androidx.compose.foundation.clickable
+import com.focusguard.app.ui.theme.CyanAccent
 import com.focusguard.app.ui.theme.DarkBg
 import com.focusguard.app.ui.theme.DarkSurface
 import com.focusguard.app.ui.theme.DarkSurfaceVariant
@@ -371,9 +373,11 @@ fun EmergencyUnlockDialog(
     onDismiss: () -> Unit,
     onConfirmUnlock: () -> Unit
 ) {
-    val penaltySentence = "지금 포기하면 후회할 것을 압니다."
+    val penaltySentenceKo = "지금 포기하면 후회할 것을 압니다."
+    val penaltySentenceEn = "I will regret giving up now."
     var typedText by remember { mutableStateOf("") }
-    val isMatch = typedText.trim() == penaltySentence
+    val isMatch = typedText.trim() == penaltySentenceKo ||
+            typedText.trim().equals(penaltySentenceEn, ignoreCase = true)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -399,12 +403,12 @@ fun EmergencyUnlockDialog(
             Column {
                 if (isStrict) {
                     Text(
-                        text = "엄격 모드가 켜져 있습니다. 무의식적인 해제를 방지하기 위해 아래 문장을 오타 없이 그대로 입력해야 해제할 수 있습니다:",
+                        text = "엄격 모드가 켜져 있습니다. 무의식적인 해제를 방지하기 위해 아래 문장(한글 또는 영문) 중 하나를 그대로 입력하세요:",
                         fontSize = 13.sp,
                         color = TextSecondary,
                         lineHeight = 18.sp
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -412,14 +416,23 @@ fun EmergencyUnlockDialog(
                             .background(DarkSurfaceVariant)
                             .padding(12.dp)
                     ) {
-                        Text(
-                            text = penaltySentence,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = WarningOrange
-                        )
+                        Column {
+                            Text(
+                                text = "🇰🇷 $penaltySentenceKo",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = WarningOrange
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "🇺🇸 $penaltySentenceEn",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CyanAccent
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = typedText,
                         onValueChange = { typedText = it },
@@ -433,6 +446,27 @@ fun EmergencyUnlockDialog(
                         ),
                         singleLine = true
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Quick Auto-fill button for PC Emulator testing
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(DarkSurfaceVariant)
+                                .clickable { typedText = penaltySentenceEn }
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = "🧪 에뮬레이터 테스트용 자동 입력",
+                                fontSize = 11.sp,
+                                color = CyanAccent,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 } else {
                     Text(
                         text = "정말로 집중 모드를 종료하시겠습니까? 설정된 시간 전에 종료하면 목표 달성률이 낮아집니다.",
