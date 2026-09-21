@@ -38,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import kotlin.math.roundToInt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -357,26 +358,53 @@ fun TimerScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Custom Slider
+                // 1-minute Slider with quick +/- controls
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "세밀한 시간 조절", fontSize = 13.sp, color = TextSecondary)
-                    Text(
-                        text = "${selectedDurationMinutes}분",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = EmeraldPrimary
-                    )
+                    Text(text = "1분 단위 시간 조절", fontSize = 13.sp, color = TextSecondary)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // -1 min button
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(DarkSurfaceVariant)
+                                .clickable {
+                                    if (selectedDurationMinutes > 1) selectedDurationMinutes -= 1
+                                }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("-1분", fontSize = 11.sp, color = TextPrimary, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${selectedDurationMinutes}분",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EmeraldPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        // +1 min button
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(DarkSurfaceVariant)
+                                .clickable {
+                                    if (selectedDurationMinutes < 180) selectedDurationMinutes += 1
+                                }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("+1분", fontSize = 11.sp, color = TextPrimary, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
 
                 Slider(
                     value = selectedDurationMinutes.toFloat(),
-                    onValueChange = { selectedDurationMinutes = it.toInt() },
-                    valueRange = 5f..180f,
-                    steps = 34,
+                    onValueChange = { selectedDurationMinutes = it.roundToInt().coerceIn(1, 180) },
+                    valueRange = 1f..180f,
                     colors = SliderDefaults.colors(
                         thumbColor = EmeraldPrimary,
                         activeTrackColor = EmeraldPrimary,
