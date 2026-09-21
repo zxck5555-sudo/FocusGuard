@@ -526,8 +526,10 @@ fun TimerScreen(
     }
 
     if (showUnlockDialog) {
+        val activity = context as? android.app.Activity
         EmergencyUnlockDialog(
             isStrict = isStrict,
+            activity = activity,
             onDismiss = { showUnlockDialog = false },
             onConfirmUnlock = {
                 showUnlockDialog = false

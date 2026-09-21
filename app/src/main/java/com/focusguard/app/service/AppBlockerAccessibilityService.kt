@@ -43,11 +43,12 @@ class AppBlockerAccessibilityService : AccessibilityService() {
 
         val packageName = event.packageName?.toString() ?: return
 
-        // Skip our own app or common system packages
+        // Skip our own app, system UI, launchers, and AdMob/Google Play Services overlays
         if (packageName == applicationContext.packageName ||
             packageName == "com.android.systemui" ||
             packageName.contains("launcher") ||
-            packageName.contains("recents")
+            packageName.contains("recents") ||
+            packageName.startsWith("com.google.android.gms")
         ) {
             return
         }

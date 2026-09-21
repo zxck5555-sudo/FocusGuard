@@ -72,6 +72,10 @@ import com.focusguard.app.ui.theme.WarningOrange
 import com.focusguard.app.ui.theme.WarningRed
 import android.os.Build
 import android.view.WindowManager
+import android.widget.Toast
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SmartDisplay
+import com.focusguard.app.ad.AdRewardManager
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -84,6 +88,9 @@ class BlockerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Preload rewarded video ad immediately so it is instantly ready if unlock is attempted
+        AdRewardManager.preloadAd(this)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
@@ -356,8 +363,10 @@ fun BlockerScreen(
     }
 
     if (showUnlockDialog) {
+        val activity = context as? android.app.Activity
         EmergencyUnlockDialog(
             isStrict = isStrict,
+            activity = activity,
             onDismiss = { showUnlockDialog = false },
             onConfirmUnlock = {
                 showUnlockDialog = false
@@ -370,14 +379,26 @@ fun BlockerScreen(
 @Composable
 fun EmergencyUnlockDialog(
     isStrict: Boolean,
+    activity: android.app.Activity? = null,
     onDismiss: () -> Unit,
     onConfirmUnlock: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val penaltySentenceKo = "지금 포기하면 후회할 것을 압니다."
     val penaltySentenceEn = "I will regret giving up now."
     var typedText by remember { mutableStateOf("") }
     val isMatch = typedText.trim() == penaltySentenceKo ||
             typedText.trim().equals(penaltySentenceEn, ignoreCase = true)
+
+    var isAdReady by remember { mutableStateOf(AdRewardManager.isAdLoaded()) }
+
+    // Periodically check if ad becomes ready
+    LaunchedEffect(Unit) {
+        while (!isAdReady) {
+            isAdReady = AdRewardManager.isAdLoaded()
+            delay(1000)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -400,79 +421,184 @@ fun EmergencyUnlockDialog(
             }
         },
         text = {
-            Column {
-                if (isStrict) {
-                    Text(
-                        text = "엄격 모드가 켜져 있습니다. 무의식적인 해제를 방지하기 위해 아래 문장(한글 또는 영문) 중 하나를 그대로 입력하세요:",
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                        lineHeight = 18.sp
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "충동적인 해제를 방지하기 위한 패널티입니다. 아래 방법 중 하나를 완수해야 잠금이 해제됩니다.",
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // PENALTY OPTION 1: 30-Second Rewarded Video Ad
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkSurfaceVariant)
+                        .border(1.dp, if (isAdReady) CyanAccent.copy(alpha = 0.5f) else DarkSurfaceVariant, RoundedCornerShape(12.dp))
+                        .padding(14.dp)
+                ) {
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.SmartDisplay,
+                                    contentDescription = null,
+                                    tint = CyanAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "30초 스폰서 영상 시청",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                            }
+
+                            // Ad ready badge
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isAdReady) EmeraldPrimary.copy(alpha = 0.2f) else DarkBg)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = if (isAdReady) "준비 완료" else "로딩 중...",
+                                    fontSize = 11.sp,
+                                    color = if (isAdReady) EmeraldPrimary else TextMuted,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "스킵 없이 30초 영상을 끝까지 시청하면 즉시 집중이 해제됩니다.",
+                            fontSize = 12.sp,
+                            color = TextMuted,
+                            lineHeight = 16.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                if (activity != null) {
+                                    AdRewardManager.showRewardedAd(
+                                        activity = activity,
+                                        onUserEarnedReward = {
+                                            Toast.makeText(context, "🏆 광고 시청 완료! 집중 세션이 종료되었습니다.", Toast.LENGTH_LONG).show()
+                                            onConfirmUnlock()
+                                        },
+                                        onAdDismissedWithoutReward = {
+                                            Toast.makeText(context, "⚠️ 30초 영상을 끝까지 시청하지 않아 차단이 유지됩니다.", Toast.LENGTH_LONG).show()
+                                        },
+                                        onAdFailedToShow = { reason ->
+                                            Toast.makeText(context, "광고 준비 중입니다. 아래 문장 입력을 통해 해제할 수 있습니다.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                } else {
+                                    Toast.makeText(context, "광고 화면을 열 수 없습니다. 문장을 입력해 주세요.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = CyanAccent,
+                                contentColor = DarkBg
+                            )
+                        ) {
+                            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "광고 보고 즉시 해제하기", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // PENALTY OPTION 2: Typing Penalty (Fallback & Strict Mode)
+                Text(
+                    text = "또는 반성 문장 직접 입력하기",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DarkSurfaceVariant)
+                        .padding(10.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "🇰🇷 $penaltySentenceKo",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = WarningOrange
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "🇺🇸 $penaltySentenceEn",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CyanAccent
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = typedText,
+                    onValueChange = { typedText = it },
+                    placeholder = { Text("위 문장을 입력하세요", color = TextMuted, fontSize = 12.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = if (isMatch) EmeraldPrimary else WarningOrange,
+                        unfocusedBorderColor = DarkSurfaceVariant,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Auto-fill button for testing
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(6.dp))
                             .background(DarkSurfaceVariant)
-                            .padding(12.dp)
+                            .clickable { typedText = penaltySentenceEn }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Column {
-                            Text(
-                                text = "🇰🇷 $penaltySentenceKo",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = WarningOrange
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "🇺🇸 $penaltySentenceEn",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CyanAccent
-                            )
-                        }
+                        Text(
+                            text = "🧪 테스트용 자동 입력",
+                            fontSize = 11.sp,
+                            color = CyanAccent,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = typedText,
-                        onValueChange = { typedText = it },
-                        placeholder = { Text("위 문장을 입력하세요", color = TextMuted) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = if (isMatch) EmeraldPrimary else WarningOrange,
-                            unfocusedBorderColor = DarkSurfaceVariant,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    // Quick Auto-fill button for PC Emulator testing
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(DarkSurfaceVariant)
-                                .clickable { typedText = penaltySentenceEn }
-                                .padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Text(
-                                text = "🧪 에뮬레이터 테스트용 자동 입력",
-                                fontSize = 11.sp,
-                                color = CyanAccent,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                } else {
-                    Text(
-                        text = "정말로 집중 모드를 종료하시겠습니까? 설정된 시간 전에 종료하면 목표 달성률이 낮아집니다.",
-                        fontSize = 14.sp,
-                        color = TextSecondary
-                    )
                 }
             }
         },
@@ -485,12 +611,12 @@ fun EmergencyUnlockDialog(
                     disabledContainerColor = DarkSurfaceVariant
                 )
             ) {
-                Text(text = "집중 종료", color = if (!isStrict || isMatch) Color.White else TextMuted)
+                Text(text = "문장 입력 완료 후 해제", color = if (!isStrict || isMatch) Color.White else TextMuted, fontSize = 12.sp)
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text(text = "계속 집중하기", color = TextPrimary)
+                Text(text = "계속 집중하기", color = TextPrimary, fontSize = 12.sp)
             }
         }
     )

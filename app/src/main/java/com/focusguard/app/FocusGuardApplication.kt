@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 
+import com.google.android.gms.ads.MobileAds
+
 class FocusGuardApplication : Application() {
 
     companion object {
@@ -16,6 +18,8 @@ class FocusGuardApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
+        // Initialize Google Mobile Ads SDK on startup
+        MobileAds.initialize(this) {}
     }
 
     private fun createNotificationChannels() {
