@@ -32,10 +32,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FocusGuard">
 
-        <!-- Google AdMob Application ID (Google sample ID for testing) -->
+        <!-- Google AdMob Application ID (Referenced from strings.xml for easy release configuration) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="@string/admob_app_id" />
 
         <!-- Main Dashboard Activity -->
         <activity

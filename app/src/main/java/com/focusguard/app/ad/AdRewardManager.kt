@@ -13,11 +13,20 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 object AdRewardManager {
     private const val TAG = "AdRewardManager"
 
-    // Google Official Rewarded Video Test Ad Unit ID
+    // Google Official Rewarded Video Test Ad Unit ID (Fallback)
     private const val TEST_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
 
     private var rewardedAd: RewardedAd? = null
     private var isLoading: Boolean = false
+
+    private fun getAdUnitId(context: Context): String {
+        return try {
+            val resId = context.resources.getIdentifier("admob_rewarded_ad_unit_id", "string", context.packageName)
+            if (resId != 0) context.getString(resId) else TEST_REWARDED_AD_UNIT_ID
+        } catch (e: Exception) {
+            TEST_REWARDED_AD_UNIT_ID
+        }
+    }
 
     fun isAdLoaded(): Boolean = rewardedAd != null
 
@@ -28,9 +37,11 @@ object AdRewardManager {
 
         isLoading = true
         val adRequest = AdRequest.Builder().build()
+        val adUnitId = getAdUnitId(context)
+
         RewardedAd.load(
             context.applicationContext,
-            TEST_REWARDED_AD_UNIT_ID,
+            adUnitId,
             adRequest,
             object : RewardedAdLoadCallback() {
                 override fun onAdFailedToLoad(loadAdError: LoadAdError) {

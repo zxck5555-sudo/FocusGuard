@@ -2,4 +2,12 @@
     <string name="app_name">FocusGuard</string>
     <string name="accessibility_service_label">FocusGuard 앱 사용 제한 서비스</string>
     <string name="accessibility_service_description">집중 모드 중 설정된 차단 앱(유튜브, SNS, 게임 등)이 실행되는 것을 실시간으로 감지하고 차단 화면을 띄워 집중을 유지하도록 돕습니다.</string>
+
+    <!-- Google AdMob Configuration -->
+    <!-- [출시 안내]: 실제 출시 시 아래 값을 구글 애드몹 콘솔에서 발급받은 실제 App ID와 Rewarded Ad Unit ID로 변경하세요 -->
+    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+    <string name="admob_rewarded_ad_unit_id">ca-app-pub-3940256099942544/5224354917</string>
+
+    <!-- Privacy Policy URL for Play Store and In-app disclosure -->
+    <string name="privacy_policy_url">https://github.com/zxck5555-sudo/FocusGuard/blob/main/PRIVACY_POLICY.md</string>
 </resources>
