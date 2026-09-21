@@ -62,18 +62,15 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             lastBlockedPackage = packageName
             lastBlockedTimestamp = now
 
-            // 1. Kick back to Home screen to prevent access
-            performGlobalAction(GLOBAL_ACTION_HOME)
-
-            // 2. Trigger warning vibration
+            // 1. Trigger warning vibration
             triggerHapticAlert()
 
-            // 3. Increment statistics
+            // 2. Increment statistics
             serviceScope.launch {
                 focusPreferences.incrementBlockedAttempts()
             }
 
-            // 4. Launch full-screen blocker UI
+            // 3. Launch full-screen blocker UI
             val appName = appManager.getAppName(packageName)
             val blockerIntent = Intent(this, BlockerActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)

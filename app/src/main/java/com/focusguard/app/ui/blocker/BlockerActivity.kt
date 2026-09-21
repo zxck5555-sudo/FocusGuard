@@ -140,14 +140,18 @@ fun BlockerScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val focusPreferences = remember { FocusPreferences.getInstance(context) }
-    val endTime by focusPreferences.focusEndTimeFlow.collectAsState(initial = 0L)
-    val isStrict by focusPreferences.strictModeFlow.collectAsState(initial = true)
+    val endTime by focusPreferences.focusEndTimeFlow.collectAsState(initial = FocusPreferences.cachedFocusEndTime)
+    val isStrict by focusPreferences.strictModeFlow.collectAsState(initial = FocusPreferences.cachedStrictMode)
 
-    var remainingMillis by remember { mutableLongStateOf(0L) }
+    var remainingMillis by remember {
+        val initialDiff = FocusPreferences.cachedFocusEndTime - System.currentTimeMillis()
+        mutableLongStateOf(if (initialDiff > 0) initialDiff else 0L)
+    }
     var showUnlockDialog by remember { mutableStateOf(false) }
 
     // Live countdown update
     LaunchedEffect(endTime) {
+        if (endTime <= 0L) return@LaunchedEffect
         while (true) {
             val diff = endTime - System.currentTimeMillis()
             remainingMillis = if (diff > 0) diff else 0

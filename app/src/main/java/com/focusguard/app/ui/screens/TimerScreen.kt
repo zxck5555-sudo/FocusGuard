@@ -71,6 +71,14 @@ import com.focusguard.app.ui.theme.TextPrimary
 import com.focusguard.app.ui.theme.TextSecondary
 import com.focusguard.app.ui.theme.WarningOrange
 import com.focusguard.app.ui.theme.WarningRed
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -81,6 +89,7 @@ fun TimerScreen(
     onNavigateToAppSelection: () -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val prefs = remember { FocusPreferences.getInstance(context) }
 
@@ -94,6 +103,18 @@ fun TimerScreen(
     var selectedDurationMinutes by remember { mutableIntStateOf(25) }
     var remainingMillis by remember { mutableLongStateOf(0L) }
     var showUnlockDialog by remember { mutableStateOf(false) }
+    var showPermissionRequiredDialog by remember { mutableStateOf(false) }
+    var isAccessibilityGranted by remember { mutableStateOf(isAccessibilityServiceEnabled(context)) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                isAccessibilityGranted = isAccessibilityServiceEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     // Live countdown update when timer is running
     LaunchedEffect(isActive, endTime) {
@@ -165,7 +186,48 @@ fun TimerScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        // Accessibility Missing Warning Banner
+        if (!isAccessibilityGranted) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(WarningRed.copy(alpha = 0.15f))
+                    .border(1.dp, WarningRed.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                    .clickable {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(intent)
+                    }
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = WarningRed,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "⚠️ 접근성 권한이 꺼져 있습니다!",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = WarningRed
+                    )
+                    Text(
+                        text = "이 권한을 켜야 앱 차단이 작동합니다. 터치하여 켜기 >",
+                        fontSize = 11.sp,
+                        color = TextSecondary
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Big Circular Progress Timer
         Box(
@@ -332,7 +394,11 @@ fun TimerScreen(
                 if (isActive) {
                     showUnlockDialog = true
                 } else {
-                    FocusTimerService.startService(context, selectedDurationMinutes * 60)
+                    if (!isAccessibilityGranted) {
+                        showPermissionRequiredDialog = true
+                    } else {
+                        FocusTimerService.startService(context, selectedDurationMinutes * 60)
+                    }
                 }
             },
             modifier = Modifier
@@ -438,6 +504,57 @@ fun TimerScreen(
             onConfirmUnlock = {
                 showUnlockDialog = false
                 FocusTimerService.stopService(context)
+            }
+        )
+    }
+
+    if (showPermissionRequiredDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionRequiredDialog = false },
+            containerColor = DarkSurface,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = WarningOrange,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "접근성 권한 필요",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
+            },
+            text = {
+                Text(
+                    text = "유튜브, 크롬 등의 앱 실행을 감지하고 차단 화면을 띄우기 위해서는 안드로이드 시스템의 [접근성 서비스] 권한이 반드시 필요합니다.\n\n설정 화면으로 이동하여 'FocusGuard'를 켜주시겠습니까?",
+                    color = TextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPermissionRequiredDialog = false
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(intent)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                ) {
+                    Text("설정으로 이동", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionRequiredDialog = false }) {
+                    Text("닫기", color = TextMuted)
+                }
             }
         )
     }

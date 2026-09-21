@@ -302,7 +302,7 @@ fun PermissionItemCard(
     }
 }
 
-private fun isAccessibilityServiceEnabled(context: Context): Boolean {
+fun isAccessibilityServiceEnabled(context: Context): Boolean {
     val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager ?: return false
     val enabledServices = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC)
     val expectedServiceName = "${context.packageName}/${AppBlockerAccessibilityService::class.java.name}"
